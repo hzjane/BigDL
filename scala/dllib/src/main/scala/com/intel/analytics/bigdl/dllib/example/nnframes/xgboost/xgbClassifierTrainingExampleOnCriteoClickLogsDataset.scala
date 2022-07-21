@@ -50,8 +50,8 @@ object xgbClassifierTrainingExampleOnCriteoClickLogsDataset {
   val feature_nums = 39
 
   def main(args: Array[String]): Unit = {
-    if (args.length < 5) {
-      println("Usage: program input_path modelsave_path num_threads num_round max_depth")
+    if (args.length < 6) {
+      println("Usage: program input_path modelsave_path num_threads num_round max_depth num_workers")
       sys.exit(1)
     }
 
@@ -64,6 +64,10 @@ object xgbClassifierTrainingExampleOnCriteoClickLogsDataset {
     val num_threads = args(2).toInt // xgboost threads
     val num_round = args(3).toInt //  train round
     val max_depth = args(4).toInt // tree max depth
+    val num_workers = args(5).toInt // num_workers
+    if (num_workers == null || num_workers == '' || num_workers <= 0) {
+	num_workers = 1
+    }
 
     // read csv files to dataframe
     var df = spark.read.option("header", "false").
@@ -117,7 +121,7 @@ object xgbClassifierTrainingExampleOnCriteoClickLogsDataset {
     xgbClassifier.setFeaturesCol("features")
     xgbClassifier.setLabelCol("classIndex")
     xgbClassifier.setNumClass(2)
-    xgbClassifier.setNumWorkers(1)
+    xgbClassifier.setNumWorkers(num_workers)
     xgbClassifier.setMaxDepth(max_depth)
     xgbClassifier.setNthread(num_threads)
     xgbClassifier.setNumRound(num_round)
