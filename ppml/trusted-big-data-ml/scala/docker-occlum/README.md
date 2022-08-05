@@ -125,6 +125,7 @@ You can change the configuration in [start-spark-local.sh](https://github.com/in
 -e SGX_THREAD=1024 \
 -e SGX_HEAP=1GB \
 -e SGX_KERNEL_HEAP=1GB \
+-e META_SPACE=1024m \
 ```
 
 ### Generate Data
