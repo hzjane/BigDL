@@ -288,6 +288,8 @@ class ModelRunner:
 
         self.waiting_requests = asyncio.Queue()
         self.send_buff = None
+        self.total_time0=[]
+        self.total_time1=[]
         self.dict_lock = threading.Lock()
 
                 
@@ -414,9 +416,12 @@ class ModelRunner:
 
         if self.rank == 0:
             if self.send_buff is not None:
+                t1 = time.perf_counter()
                 # logger.info(f"rank: {self.rank}, send: {self.send_buff.shape}")
                 dist.send(self.send_buff, dst=self.next_rank)
-
+                t2 = time.perf_counter()
+                self.total_time0.append(t2-t1)
+                logger.info(f"rank{self.rank}: sending time:{t2-t1}")
             if self.on_going_batches[0] is not None:
                 cur_batch = self.on_going_batches[0]
                 cur_input = None
@@ -434,7 +439,10 @@ class ModelRunner:
                 cur_id = cur_batch.batch_id
                 next_ids = torch.empty((cur_batch.batch_size, 1,), device=f'xpu:{self.rank}', dtype=torch.int64)
                 # logger.info(f"rank: {self.rank}, recv: {next_ids.shape}")
+                t1 = time.perf_counter()
                 dist.recv(next_ids, src=self.pre_rank)
+                t2 = time.perf_counter()
+                logger.info(f"rank{self.rank}: recving time:{t2-t1}")
                 
                 if self.tokens.get(cur_id, None) is None:
                     self.tokens[cur_id] = []
@@ -461,7 +469,11 @@ class ModelRunner:
                     cur_times = self.token_times[cur_id]
                     first_token = cur_times[1] - cur_times[0]
                     next_token = (cur_times[-1] - cur_times[1]) / (len(self.tokens[cur_id]) - 1)
-                    logger.info(f"First token latency: {first_token}, next token latency: {next_token}")
+                    total_time = cur_times[-1] - cur_times[0]
+                    logger.info(f"First token latency: {first_token}, next token latency: {next_token}, total_time: {total_time}")
+                    self.total_time0.append(sum(self.total_time0))
+                    logger.info(f"total_time0: {self.total_time0}")
+                    self.total_time0=[]
                     self.clear_batch(cur_id)
                     cur_batch.stopped = True
             else:
@@ -474,7 +486,11 @@ class ModelRunner:
         else:
             if self.send_buff is not None:
                 # logger.info(f"rank: {self.rank}, send: {self.send_buff.shape}")
+                t1 = time.perf_counter()
                 dist.send(self.send_buff, dst=self.next_rank)
+                t2 = time.perf_counter()
+                self.total_time1.append(t2-t1)
+                logger.info(f"rank{self.rank}: sending time:{t2-t1}")
 
             batch_list = [None]
             dist.broadcast_object_list(batch_list, src=0)
@@ -484,24 +500,32 @@ class ModelRunner:
 
             if cur_batch is not None:
                 if cur_batch.stopped:
+                    self.total_time1.append(sum(self.total_time1))
+                    logger.info(f"total_time1: {self.total_time1}")
+                    self.total_time1=[]
                     self.clear_batch(cur_batch.batch_id)
                 else:
                     cur_len = cur_batch.input_len
                     cur_input = torch.empty((cur_batch.batch_size, cur_len, self.hidden_size,), device=f'xpu:{self.rank}', dtype=self.dtype)
                     # logger.info(f"rank: {self.rank}, recv: {cur_input.shape}")
+                    t1 = time.perf_counter()
                     dist.recv(cur_input, src=self.pre_rank)
-
+                    t2 = time.perf_counter()
+                    logger.info(f"rank{self.rank}: recving time:{t2-t1}")
                 # if self.attention_mask_dict.get(cur_batch.batch_id, None) is None:
                 #     self.attention_mask_dict[cur_batch.batch_id] = make_attention_mask(cur_batch.prompt_lengths)
             
         # if self.rank == 0:
         #     logger.info(f"rank: {self.rank}, {batch_list}")
         
+        t1 = time.perf_counter()
         output = self.model_step(cur_input, cur_batch)
+        t2 = time.perf_counter()
         if output is not None and self.rank == self.world_size - 1:
             output = torch.argmax(output[:, -1:, :], dim=-1)
 
         if output is not None:
+            logger.info(f"rank{self.rank}: model_step time:{t2-t1}")
             # dist.send(output, dst=self.next_rank)
             self.send_buff = output
         else:
