@@ -72,3 +72,24 @@ Inference time: xxxx s
 问:AI是什么?
 答: AI是人工智能(Artificial Intelligence)的缩写,指的是一种能够模拟人类智能的技术或系统。AI包括机器学习、深度学习、自然语言处理、计算机视觉
 ```
+
+
+Baichuan2-13B-Chat True
+Baichuan2-7B-Chat True
+CodeQwen1.5-7B-Chat True
+Llama-2-13b-chat-hf True
+Llama-2-7b-chat-hf True
+Meta-Llama-3-8B-Instruct True
+Mistral-7B-v0.1 True
+Phi-3-mini-4k-instruct True
+Qwen1.5-14B-Chat True
+Qwen1.5-7B-Chat True
+Qwen1.5-MoE-A2.7B-Chat True
+Qwen2-7B-Instruct True
+Yi-6B-Chat True
+chatglm3-6b True
+gemma-7b-it True
+vicuna-13b False
+vicuna-33b-v1.3 False
+vicuna-7b False
+
